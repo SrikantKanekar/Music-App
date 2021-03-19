@@ -2,7 +2,6 @@ package com.example.music.Storage;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.util.Log;
 
 import com.example.music.Model.AlbumModel;
 import com.example.music.Model.ArtistModel;
@@ -17,8 +16,8 @@ import java.util.ArrayList;
 
 public class StorageUtil {
     private final String STORAGE = "STORAGE";
-    private final String SONG_ARRAY_LIST = "SONG_ARRAY_LIST";
-    private final String SONG_POSITION = "SONG_POSITION";
+    private final String SONGS_LIST = "SONGS_LIST";
+    private final String CURRENT_WINDOW = "CURRENT_WINDOW";
 
     private final String USER_STORAGE = "USER_STORAGE";
     private final String FAVOURITE_SONGS = "FAVOURITE_SONGS";
@@ -26,9 +25,9 @@ public class StorageUtil {
     private final String FAVOURITE_ALBUMS = "FAVOURITE_ALBUMS";
 
     private final String STORAGE_LAST_SONG = "STORAGE_LAST_SONG";
-    private final String ACTIVE_SONG = "ACTIVE_SONG";
-    private final String SONG_DURATION = "SONG_DURATION";
-    private final String DURATION_IN_MINUTES = "DURATION_IN_MINUTES";
+    private final String CURRENT_SONG = "CURRENT_SONG";
+    private final String CURRENT_DURATION = "CURRENT_DURATION";
+    private final String CURRENT_POSITION = "CURRENT_POSITION";
     private final String PLAYBACK_STATUS = "PLAYBACK_STATUS";
     private final String FOCUS = "FOCUS";
 
@@ -45,33 +44,36 @@ public class StorageUtil {
 
 
 
-    public void storeAudioList(ArrayList<SongModel> arrayList) {
+
+
+
+    public void storeSongsList(ArrayList<SongModel> songsList) {
         preferences = context.getSharedPreferences(STORAGE, Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = preferences.edit();
         Gson gson = new Gson();
-        String json = gson.toJson(arrayList);
-        editor.putString(SONG_ARRAY_LIST, json);
+        String json = gson.toJson(songsList);
+        editor.putString(SONGS_LIST, json);
         editor.apply();
     }
 
-    public ArrayList<SongModel> loadAudioList() {
+    public ArrayList<SongModel> loadSongsList() {
         preferences = context.getSharedPreferences(STORAGE, Context.MODE_PRIVATE);
         Gson gson = new Gson();
-        String json = preferences.getString(SONG_ARRAY_LIST, null);
+        String json = preferences.getString(SONGS_LIST, null);
         Type type = new TypeToken<ArrayList<SongModel>>() {}.getType();
         return gson.fromJson(json, type);
     }
 
-    public void storeAudioIndex(int index) {
+    public void storeCurrentWindow(int currentWindow) {
         preferences = context.getSharedPreferences(STORAGE, Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = preferences.edit();
-        editor.putInt(SONG_POSITION, index);
+        editor.putInt(CURRENT_WINDOW, currentWindow);
         editor.apply();
     }
 
-    public int loadAudioIndex() {
+    public int loadCurrentWindow() {
         preferences = context.getSharedPreferences(STORAGE, Context.MODE_PRIVATE);
-        return preferences.getInt(SONG_POSITION, -1);
+        return preferences.getInt(CURRENT_WINDOW, 0);
     }
 
 
@@ -81,6 +83,13 @@ public class StorageUtil {
         editor.clear();
         editor.apply();
     }
+
+
+
+
+
+
+
 
     public void storeFavouriteSongs(ArrayList<SongModel> arrayList) {
         preferences = context.getSharedPreferences(USER_STORAGE, Context.MODE_PRIVATE);
@@ -144,45 +153,55 @@ public class StorageUtil {
 
 
 
-    public void storeActiveSong(SongModel activeSong) {
+
+
+
+
+
+
+
+
+
+
+    public void storeCurrentSong(SongModel currentSong) {
         preferences = context.getSharedPreferences(STORAGE_LAST_SONG, Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = preferences.edit();
         Gson gson = new Gson();
-        String json = gson.toJson(activeSong);
-        editor.putString(ACTIVE_SONG, json);
+        String json = gson.toJson(currentSong);
+        editor.putString(CURRENT_SONG, json);
         editor.apply();
     }
 
-    public SongModel loadActiveSong() {
+    public SongModel loadCurrentSong() {
         preferences = context.getSharedPreferences(STORAGE_LAST_SONG, Context.MODE_PRIVATE);
         Gson gson = new Gson();
-        String json = preferences.getString(ACTIVE_SONG, null);
+        String json = preferences.getString(CURRENT_SONG, null);
         Type type = new TypeToken<SongModel>() {}.getType();
         return gson.fromJson(json, type);
     }
 
-    public void storeSongDuration(int duration) {
+    public void storeCurrentDuration(int currentDuration) {
         preferences = context.getSharedPreferences(STORAGE_LAST_SONG, Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = preferences.edit();
-        editor.putInt(SONG_DURATION, duration);
+        editor.putInt(CURRENT_DURATION, currentDuration);
         editor.apply();
     }
 
-    public int loadSongDuration() {
+    public int loadCurrentDuration() {
         preferences = context.getSharedPreferences(STORAGE_LAST_SONG, Context.MODE_PRIVATE);
-        return preferences.getInt(SONG_DURATION, -1);
+        return preferences.getInt(CURRENT_DURATION, -1);
     }
 
-    public void storeSongDurationInMinutes(String time) {
+    public void storeCurrentPosition(int currentPosition) {
         preferences = context.getSharedPreferences(STORAGE_LAST_SONG, Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = preferences.edit();
-        editor.putString(DURATION_IN_MINUTES, time);
+        editor.putInt(CURRENT_POSITION, currentPosition);
         editor.apply();
     }
 
-    public String loadSongDurationInMinutes() {
+    public int loadCurrentPosition() {
         preferences = context.getSharedPreferences(STORAGE_LAST_SONG, Context.MODE_PRIVATE);
-        return preferences.getString(DURATION_IN_MINUTES, "null");
+        return preferences.getInt(CURRENT_POSITION, -1);
     }
 
     public void storePlaybackStatus(PlaybackStatus status) {
@@ -211,6 +230,12 @@ public class StorageUtil {
     }
 
 
+
+
+
+
+
+
     public void storeSettingFirstStart(boolean bool) {
         preferences = context.getSharedPreferences(SETTINGS, Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = preferences.edit();
@@ -222,17 +247,4 @@ public class StorageUtil {
         preferences = context.getSharedPreferences(SETTINGS, Context.MODE_PRIVATE);
         return preferences.getBoolean(FIRST_START, true);
     }
-
-    public void storeSettingFirstTime(boolean bool) {
-        preferences = context.getSharedPreferences(SETTINGS, Context.MODE_PRIVATE);
-        SharedPreferences.Editor editor = preferences.edit();
-        editor.putBoolean(FIRST_TIME, bool);
-        editor.apply();
-    }
-
-    public boolean loadSettingFirstTime() {
-        preferences = context.getSharedPreferences(SETTINGS, Context.MODE_PRIVATE);
-        return preferences.getBoolean(FIRST_TIME, true);
-    }
-
 }

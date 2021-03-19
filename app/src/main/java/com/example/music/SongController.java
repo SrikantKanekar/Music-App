@@ -29,16 +29,18 @@ public class SongController extends Fragment implements SeekBar.OnSeekBarChangeL
     private TextView textViewTitle;
     private TextView textViewArtist;
     private ImageView imageViewFavourite;
-    private TextView textViewLiveTime;
-    private TextView textViewTotalTime;
+    private TextView textViewCurrentPosition;
+    private TextView textViewCurrentDuration;
     private SeekBar seekBar;
     private ProgressBar progressBar;
     private ImageView playPauseButton;
 
     private SongModel activeSong;
     private String activeImageUrl = "";
-    private int songDuration;
-    private String songDurationInMinutes;
+    private int currentDuration;
+    private String currentDurationInMinutes;
+    private int currentPosition;
+    private String currentPositionInMinutes;
 
     private StorageUtil storage;
 
@@ -59,8 +61,8 @@ public class SongController extends Fragment implements SeekBar.OnSeekBarChangeL
         textViewTitle = v.findViewById(R.id.text_view_song_controller_title);
         textViewArtist = v.findViewById(R.id.text_view_song_controller_artist);
         imageViewFavourite = v.findViewById(R.id.image_view_song_controller_favourite);
-        textViewLiveTime = v.findViewById(R.id.text_view_song_controller_live_time);
-        textViewTotalTime = v.findViewById(R.id.text_view_song_controller_total_time);
+        textViewCurrentPosition = v.findViewById(R.id.text_view_song_controller_live_time);
+        textViewCurrentDuration = v.findViewById(R.id.text_view_song_controller_total_time);
         seekBar = v.findViewById(R.id.seek_bar_song_controller);
         progressBar = v.findViewById(R.id.progress_bar_song_controller);
         playPauseButton = v.findViewById(R.id.image_view_song_controller_play_pause);
@@ -78,11 +80,14 @@ public class SongController extends Fragment implements SeekBar.OnSeekBarChangeL
 
     private void intiController() {
         storage = new StorageUtil(getActivity());
-        activeSong = storage.loadActiveSong();
-        songDuration = storage.loadSongDuration();
-        songDurationInMinutes = storage.loadSongDurationInMinutes();
+        activeSong = storage.loadCurrentSong();
+        currentDuration = storage.loadCurrentDuration();
+        currentPosition = storage.loadCurrentPosition() / 1000;
+        currentDurationInMinutes = inMinutes(currentDuration);
+        currentPositionInMinutes = inMinutes(currentPosition);
+
         if (activeSong != null) {
-            loadSongData();
+            loadMetadata();
         }
     }
 
@@ -126,12 +131,11 @@ public class SongController extends Fragment implements SeekBar.OnSeekBarChangeL
 
     }
 
-    public void loadPlayPauseButton(View v) {
-        ImageView iconPlayPause = v.findViewById(R.id.image_view_song_controller_play_pause);
+    public void updatePlayButton(View v) {
         if (storage.loadPlaybackStatus() == PlaybackStatus.PLAYING) {
-            iconPlayPause.setImageResource(R.drawable.ic_baseline_pause_24);
+            playPauseButton.setImageResource(R.drawable.ic_baseline_pause_24);
         } else if (storage.loadPlaybackStatus() == PlaybackStatus.PAUSED) {
-            iconPlayPause.setImageResource(R.drawable.ic_baseline_play_arrow_24);
+            playPauseButton.setImageResource(R.drawable.ic_baseline_play_arrow_24);
         }
     }
 
@@ -168,7 +172,7 @@ public class SongController extends Fragment implements SeekBar.OnSeekBarChangeL
 
     }
 
-    private void loadSongData() {
+    private void loadMetadata() {
         Picasso.with(getActivity())
                 .load(activeSong.getImageUrl())
                 .fit()
@@ -177,9 +181,14 @@ public class SongController extends Fragment implements SeekBar.OnSeekBarChangeL
         textViewTitle.setText(activeSong.getTitle());
         textViewArtist.setText(activeSong.getArtist());
 
-        seekBar.setMax(songDuration);
-        textViewTotalTime.setText(songDurationInMinutes);
-        loadPlayPauseButton(playPauseButton);
+        seekBar.setMax(currentDuration);
+        textViewCurrentDuration.setText(currentDurationInMinutes);
+
+        seekBar.setProgress(currentPosition);
+        progressBar.setProgress(100 * currentPosition / currentDuration);
+        textViewCurrentPosition.setText(currentPositionInMinutes);
+
+        updatePlayButton(playPauseButton);
         if (storage.loadFavouriteSongs() != null) {
             if (favouriteSongs.isFavourite(activeSong)) {
                 imageViewFavourite.setImageResource(R.drawable.ic_baseline_favorite_24);
@@ -189,10 +198,8 @@ public class SongController extends Fragment implements SeekBar.OnSeekBarChangeL
         }
     }
 
-    private void updateSongData(Intent intent) {
+    private void updateMetadata(Intent intent) {
         activeSong = (SongModel) intent.getSerializableExtra("activeSong");
-        songDuration = intent.getIntExtra("duration", 1);
-        songDurationInMinutes = intent.getStringExtra("totalTime");
 
         if (!activeImageUrl.equals(activeSong.getImageUrl())) {
             activeImageUrl = activeSong.getImageUrl();
@@ -202,11 +209,10 @@ public class SongController extends Fragment implements SeekBar.OnSeekBarChangeL
                     .centerCrop()
                     .into(imageView);
         }
+
         textViewTitle.setText(activeSong.getTitle());
         textViewArtist.setText(activeSong.getArtist());
-        seekBar.setMax(songDuration);
-        textViewTotalTime.setText(songDurationInMinutes);
-        loadPlayPauseButton(playPauseButton);
+
         if (storage.loadFavouriteSongs() != null) {
             if (favouriteSongs.isFavourite(activeSong)) {
                 imageViewFavourite.setImageResource(R.drawable.ic_baseline_favorite_24);
@@ -214,46 +220,82 @@ public class SongController extends Fragment implements SeekBar.OnSeekBarChangeL
                 imageViewFavourite.setImageResource(R.drawable.ic_baseline_not_favorite);
             }
         }
-
-        storage.storeActiveSong(activeSong);
-        storage.storeSongDuration(songDuration);
-        storage.storeSongDurationInMinutes(songDurationInMinutes);
+        storage.storeCurrentSong(activeSong);
     }
 
-    private void updateProgressData(Intent intent) {
-        int progress = intent.getIntExtra("currentPosition", 2);
-        seekBar.setProgress(progress);
-        progressBar.setProgress(100 * progress / songDuration);
-        textViewLiveTime.setText(intent.getStringExtra("currentDuration"));
+    private void updateCurrentDuration(Intent intent) {
+        currentDuration = intent.getIntExtra("currentDuration", 1);
+        currentDurationInMinutes = inMinutes(currentDuration);
+        seekBar.setMax(currentDuration);
+        textViewCurrentDuration.setText(currentDurationInMinutes);
+        storage.storeCurrentDuration(currentDuration);
     }
 
-    private void resetProgressData(){
+    private void updateCurrentPosition(Intent intent) {
+        currentPosition = intent.getIntExtra("currentPosition", 1);
+        currentPositionInMinutes = inMinutes(currentPosition);
+        seekBar.setProgress(currentPosition);
+        progressBar.setProgress(100 * currentPosition / currentDuration);
+        textViewCurrentPosition.setText(currentPositionInMinutes);
+    }
+
+    private void resetCurrentPosition(){
         seekBar.setProgress(0);
         progressBar.setProgress(0);
+        textViewCurrentPosition.setText("0:00");
     }
 
     private BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             switch (intent.getAction()) {
-                case MediaPlayerService.UPDATE_SONG_DATA:
-                    updateSongData(intent);
+                case MediaPlayerService.UPDATE_METADATA:
+                    updateMetadata(intent);
                     break;
-                case MediaPlayerService.UPDATE_PROGRESS_DATA:
-                    updateProgressData(intent);
+                case MediaPlayerService.UPDATE_CURRENT_DURATION:
+                    updateCurrentDuration(intent);
                     break;
-                case MediaPlayerService.RESET_PROGRESS_DATA:
-                    resetProgressData();
+                case MediaPlayerService.UPDATE_CURRENT_POSITION:
+                    updateCurrentPosition(intent);
+                    break;
+                case MediaPlayerService.RESET_CURRENT_POSITION:
+                    resetCurrentPosition();
+                    break;
+                case MediaPlayerService.UPDATE_PLAY_BUTTON:
+                    updatePlayButton(playPauseButton);
                     break;
             }
         }
     };
 
     private void register_receiver() {
-        IntentFilter filter1 = new IntentFilter(MediaPlayerService.UPDATE_SONG_DATA);
+        IntentFilter filter1 = new IntentFilter(MediaPlayerService.UPDATE_METADATA);
         ((MainActivity) getActivity()).registerReceiver(receiver, filter1);
 
-        IntentFilter filter2 = new IntentFilter(MediaPlayerService.UPDATE_PROGRESS_DATA);
+        IntentFilter filter2 = new IntentFilter(MediaPlayerService.UPDATE_CURRENT_DURATION);
         ((MainActivity) getActivity()).registerReceiver(receiver, filter2);
+
+        IntentFilter filter3 = new IntentFilter(MediaPlayerService.UPDATE_CURRENT_POSITION);
+        ((MainActivity) getActivity()).registerReceiver(receiver, filter3);
+
+        IntentFilter filter4 = new IntentFilter(MediaPlayerService.RESET_CURRENT_POSITION);
+        ((MainActivity) getActivity()).registerReceiver(receiver, filter4);
+
+        IntentFilter filter5 = new IntentFilter(MediaPlayerService.UPDATE_PLAY_BUTTON);
+        ((MainActivity) getActivity()).registerReceiver(receiver, filter5);
+    }
+
+    private String inMinutes(int currentSeekBarPosition) {
+        String totalNew;
+        String totalOut;
+        String seconds = String.valueOf(currentSeekBarPosition % 60);
+        String minutes = String.valueOf(currentSeekBarPosition / 60);
+        totalNew = minutes + ":0" + seconds;
+        totalOut = minutes + ":" + seconds;
+        if (seconds.length() == 1) {
+            return totalNew;
+        } else {
+            return totalOut;
+        }
     }
 }

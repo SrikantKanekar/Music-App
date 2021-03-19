@@ -4,6 +4,7 @@ import com.google.firebase.firestore.Exclude;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Objects;
 
 public class PlaylistModel implements Serializable {
     private String name;
@@ -41,5 +42,20 @@ public class PlaylistModel implements Serializable {
     @Exclude
     public void setKey(String key) {
         this.key = key;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        PlaylistModel that = (PlaylistModel) o;
+        return Objects.equals(name, that.name) &&
+                Objects.equals(songs, that.songs) &&
+                Objects.equals(key, that.key);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, songs, key);
     }
 }

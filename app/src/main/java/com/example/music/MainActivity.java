@@ -27,15 +27,13 @@ import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
     public static final String TAG = "MainActivity";
-
     public static final String SERVICE_STATUS = "SERVICE_STATUS";
-    public static final String PLAY_NEW_AUDIO = "PLAY_NEW_AUDIO";
 
     private MediaPlayerService player;
     private boolean serviceBound = false;
 
+    private ArrayList<SongModel> currentSongList;
     private StorageUtil storage;
-    private ArrayList<SongModel> oldSongs;
 
     private View navHostFragment;
     private SongController songControllerFragment;
@@ -49,6 +47,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        storage = new StorageUtil(getApplicationContext());
 
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
 
@@ -65,9 +65,8 @@ public class MainActivity extends AppCompatActivity {
         firebaseAuth = FirebaseAuth.getInstance();
         currentUser = firebaseAuth.getCurrentUser();
 
-        storage = new StorageUtil(getApplicationContext());
-        oldSongs = storage.loadAudioList();
-        if (oldSongs != null && !oldSongs.isEmpty()) {
+        currentSongList = storage.loadSongsList();
+        if (currentSongList != null && !currentSongList.isEmpty()) {
             startMusicService();
         } else {
             View v = findViewById(R.id.song_controller_container);
@@ -75,14 +74,29 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public static void signOut(){
-        firebaseAuth.signOut();
-    }
-
     private void startMusicService() {
         Intent playerIntent = new Intent(this, MediaPlayerService.class);
         startService(playerIntent);
         bindService(playerIntent, serviceConnection, Context.BIND_AUTO_CREATE);
+    }
+
+    public void playSong(ArrayList<SongModel> newSongList, int position) {
+        if (storage.loadSettingFirstStart()) {
+            storage.storeSongsList(newSongList);
+            storage.storeCurrentWindow(position);
+
+            startMusicService();
+
+            View v = findViewById(R.id.song_controller_container);
+            v.setVisibility(View.VISIBLE);
+            return;
+        }
+
+        currentSongList = storage.loadSongsList();
+        if (!newSongList.equals(currentSongList)) {
+            player.updateSongList(newSongList);
+        }
+        player.updateCurrentWindow(position);
     }
 
     public void expandController(View v) {
@@ -126,10 +140,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void playPauseSong(View v) {
-        if (serviceBound) {
-            player.playPause();
-            songControllerFragment.loadPlayPauseButton(v);
-        }
+        player.playPause();
+        songControllerFragment.updatePlayButton(v);
     }
 
     public void nextSong(View v) {
@@ -140,45 +152,16 @@ public class MainActivity extends AppCompatActivity {
         Toast.makeText(MainActivity.this, "Shuffle Playlist", Toast.LENGTH_SHORT).show();
     }
 
-    private boolean playlistsEqual(ArrayList<SongModel> songList, ArrayList<SongModel> currentSongList) {
-        if (currentSongList.size() != songList.size()) {
-            return false;
-        }
-        for (int i = 0; i < songList.size(); i++) {
-            if (!songList.get(i).getTitle().equals(currentSongList.get(i).getTitle())) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    public void playSong(ArrayList<SongModel> songList, int position) {
-        ArrayList<SongModel> currentSongList = storage.loadAudioList();
-
-        storage.storeAudioList(songList);
-        storage.storeAudioIndex(position);
-
-        if (storage.loadSettingFirstStart()) {
-            startMusicService();
-            View v = findViewById(R.id.song_controller_container);
-            v.setVisibility(View.VISIBLE);
-            storage.storePlaybackStatus(PlaybackStatus.PLAYING);
-            storage.storeSettingFirstTime(false);
-            storage.storeSettingFirstStart(false);
-        } else if (!playlistsEqual(songList, currentSongList)) {
-            player.updatePlaylist();
-        }
-
-        Intent broadcastIntent = new Intent(PLAY_NEW_AUDIO);
-        sendBroadcast(broadcastIntent);
-    }
-
     private ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             MediaPlayerService.LocalBinder binder = (MediaPlayerService.LocalBinder) service;
             player = binder.getService();
             serviceBound = true;
+            if (storage.loadSettingFirstStart()){
+                storage.storeSettingFirstStart(false);
+                player.playPause();
+            }
         }
 
         @Override
@@ -208,6 +191,10 @@ public class MainActivity extends AppCompatActivity {
         } else {
             super.onBackPressed();
         }
+    }
+
+    public static void signOut() {
+        firebaseAuth.signOut();
     }
 
     @Override
